@@ -33,8 +33,7 @@ knife4j:
     concat: 肥猫叉烧
     version: 1.0
     group:
-      test1:
-        group-name: 默认分组
+      default:
         api-rule: package
         api-rule-resources:
           - com.hunter.picturebackend.controller
