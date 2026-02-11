@@ -1,12 +1,17 @@
 package com.hunter.picturebackend.service;
 
-import com.hunter.picturebackend.model.dto.UserLoginRequest;
-import com.hunter.picturebackend.model.dto.UserRegisterRequest;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+
+import com.hunter.picturebackend.model.dto.user.UserLoginRequest;
+import com.hunter.picturebackend.model.dto.user.UserQueryRequest;
+import com.hunter.picturebackend.model.dto.user.UserRegisterRequest;
 import com.hunter.picturebackend.model.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hunter.picturebackend.model.vo.LoginUserVo;
+import com.hunter.picturebackend.model.vo.UserVo;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * @author hunternotgod
@@ -43,10 +48,26 @@ public interface UserService extends IService<User> {
     /**
      * 获得脱敏后的登陆用户信息
      *
-     * @param user
+     * @param user 用户
      * @return 脱敏后的用户信息
      */
     LoginUserVo getLoginUserVo(User user);
+
+    /**
+     * 获得脱敏后的用户信息
+     *
+     * @param user
+     * @return 脱敏后的用户信息
+     */
+    UserVo getUserVo(User user);
+
+    /**
+     * 获得脱敏后的用户信息列表
+     *
+     * @param userList
+     * @return 脱敏后的用户信息列表
+     */
+    List<UserVo> getUserVoList(List<User> userList);
 
     /**
      * 获取当前登陆用户
@@ -62,5 +83,13 @@ public interface UserService extends IService<User> {
      * @param request
      */
     void userLogout(HttpServletRequest request);
+
+    /**
+     * 获取查询条件
+     *
+     * @param userQueryRequest
+     * @return 查询条件
+     */
+    QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest);
 
 }

@@ -1,4 +1,4 @@
-package com.hunter.picturebackend.model.dto;
+package com.hunter.picturebackend.model.dto.user;
 
 import lombok.Data;
 
