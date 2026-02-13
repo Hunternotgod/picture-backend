@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/")
-@Api(tags = "检查接口")
 public class MainController {
 
     /**
@@ -19,7 +18,6 @@ public class MainController {
      * @return
      */
     @GetMapping("/health")
-    @ApiOperation("健康检查")
     public BaseResponse<String> health() {
         return ResultUtils.success("ok!");
     }

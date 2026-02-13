@@ -11,6 +11,8 @@ spring:
     url: jdbc:mysql://localhost:3306/picture
     username: root
     password: root
+  profiles:
+    active: local
 
 # mybatis配置
 mybatis-plus:
@@ -38,4 +40,12 @@ knife4j:
         api-rule-resources:
           - com.hunter.picturebackend.controller
 
+# 对象存储COS配置
+cos:
+  client:
+    host: ${cos.client.host}
+    secretId: ${cos.client.secretId}
+    secretKey: ${cos.client.secretKey}
+    region: ${cos.client.region}
+    bucket: ${cos.client.bucket}
 
