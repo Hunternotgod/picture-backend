@@ -1,17 +1,11 @@
 package com.hunter.picturebackend.model.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import lombok.Data;
 
 import java.io.Serializable;
 import java.util.Date;
 
-import lombok.Data;
-
-/**
- * 图片
- *
- * @TableName picture
- */
 @TableName(value = "picture")
 @Data
 public class Picture implements Serializable {

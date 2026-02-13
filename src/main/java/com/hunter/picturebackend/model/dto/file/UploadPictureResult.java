@@ -7,6 +7,7 @@ import lombok.Data;
  */
 @Data
 public class UploadPictureResult {
+
     /**
      * 图片地址
      */
@@ -41,4 +42,5 @@ public class UploadPictureResult {
      * 图片格式
      */
     private String picFormat;
+
 }
