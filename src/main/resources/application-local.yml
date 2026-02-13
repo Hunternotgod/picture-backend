@@ -1,8 +1,0 @@
-# 对象存储配置（需要从腾讯云获取）
-cos:
-  client:
-    host: https://picture-1351924678.cos.ap-guangzhou.myqcloud.com
-    secretId: AKIDqpbDk3A6qNgniQtCJFE7nFVYN0PZUAcq
-    secretKey: B8rMdbVFm5A0e4GE4jR1QeieQBoIaigU
-    region: ap-guangzhou
-    bucket: picture-1351924678
