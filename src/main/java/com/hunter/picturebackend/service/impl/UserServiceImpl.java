@@ -261,6 +261,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return queryWrapper;
     }
 
+    /**
+     * 是否为管理员
+     *
+     * @param user 用户信息
+     * @return ture or false
+     */
+    @Override
+    public boolean isAdmin(User user) {
+        return user != null && !UserRoleEnum.ADMIN.getValue().equals(user.getUserRole());
+    }
+
 }
 
 
