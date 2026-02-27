@@ -10,10 +10,7 @@ import com.hunter.picturebackend.constant.UserConstant;
 import com.hunter.picturebackend.exception.BusinessException;
 import com.hunter.picturebackend.exception.ErrorCode;
 import com.hunter.picturebackend.exception.ThrowUtils;
-import com.hunter.picturebackend.model.dto.picture.PictureEditRequest;
-import com.hunter.picturebackend.model.dto.picture.PictureQueryRequest;
-import com.hunter.picturebackend.model.dto.picture.PictureUpdateRequest;
-import com.hunter.picturebackend.model.dto.picture.PictureUploadRequest;
+import com.hunter.picturebackend.model.dto.picture.*;
 import com.hunter.picturebackend.model.entity.Picture;
 import com.hunter.picturebackend.model.entity.User;
 
@@ -247,6 +244,23 @@ public class PictureController {
         pictureTagCategory.setTagList(tagList);
         pictureTagCategory.setCategoryList(categoryList);
         return ResultUtils.success(pictureTagCategory);
+    }
+
+    /**
+     * 图片审核
+     *
+     * @param pictureReviewRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/review")
+    @ApiOperation("图片审核")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> doPictureReview(PictureReviewRequest pictureReviewRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(pictureReviewRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        pictureService.doPictureReview(pictureReviewRequest, loginUser);
+        return ResultUtils.success(true);
     }
 
 }

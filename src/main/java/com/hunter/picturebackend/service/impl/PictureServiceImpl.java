@@ -1,5 +1,6 @@
 package com.hunter.picturebackend.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
@@ -12,9 +13,11 @@ import com.hunter.picturebackend.exception.ThrowUtils;
 import com.hunter.picturebackend.manager.FileManager;
 import com.hunter.picturebackend.model.dto.file.UploadPictureResult;
 import com.hunter.picturebackend.model.dto.picture.PictureQueryRequest;
+import com.hunter.picturebackend.model.dto.picture.PictureReviewRequest;
 import com.hunter.picturebackend.model.dto.picture.PictureUploadRequest;
 import com.hunter.picturebackend.model.entity.Picture;
 import com.hunter.picturebackend.model.entity.User;
+import com.hunter.picturebackend.model.enums.PictureReviewStatusEnum;
 import com.hunter.picturebackend.model.vo.PictureVo;
 import com.hunter.picturebackend.model.vo.UserVo;
 import com.hunter.picturebackend.service.PictureService;
@@ -229,6 +232,39 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         if (StrUtil.isNotBlank(introduction)) {
             ThrowUtils.throwIf(introduction.length() > 800, ErrorCode.PARAMS_ERROR, "简介过长");
         }
+    }
+
+    /**
+     * 图片审核
+     *
+     * @param pictureReviewRequest
+     * @param loginUser
+     */
+    @Override
+    public void doPictureReview(PictureReviewRequest pictureReviewRequest, User loginUser) {
+        // 校验参数
+        ThrowUtils.throwIf(pictureReviewRequest == null, ErrorCode.PARAMS_ERROR);
+        Long id = pictureReviewRequest.getId();
+        Integer reviewStatus = pictureReviewRequest.getReviewStatus();
+        PictureReviewStatusEnum reviewStatusEnum = PictureReviewStatusEnum.getEnumByValue(reviewStatus);
+        String reviewMessage = pictureReviewRequest.getReviewMessage();
+        ThrowUtils.throwIf(id == null || reviewStatusEnum == null || PictureReviewStatusEnum.REVIEWING.equals(reviewStatusEnum), ErrorCode.PARAMS_ERROR);
+
+        // 判断图片是否存在
+        Picture oldPicture = this.getById(id);
+        ThrowUtils.throwIf(oldPicture == null, ErrorCode.NOT_FOUND_ERROR);
+
+        // 校验审核状态是否重复，修改之前和要修改成的状态相同
+        ThrowUtils.throwIf(oldPicture.getReviewStatus().equals(reviewStatus), ErrorCode.PARAMS_ERROR, "请勿重复审核");
+
+        // 数据库操作
+        Picture updatePicture = new Picture();
+        BeanUtil.copyProperties(pictureReviewRequest, updatePicture);
+        updatePicture.setReviewerId(loginUser.getId());
+        updatePicture.setReviewTime(new Date());
+        boolean result = this.updateById(updatePicture);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+
     }
 }
 
