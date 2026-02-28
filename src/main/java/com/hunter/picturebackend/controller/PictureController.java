@@ -48,7 +48,7 @@ public class PictureController {
     private PictureService pictureService;
 
     /**
-     * 上传图片（更新图片）
+     * 根据图片文件上传图片（更新图片）
      *
      * @param multipartFile
      * @param pictureUploadRequest
@@ -56,13 +56,31 @@ public class PictureController {
      * @return
      */
     @PostMapping("/upload")
-    @ApiOperation("上传图片")
+    @ApiOperation("根据文件上传图片")
     public BaseResponse<PictureVo> uploadPicture(
             @RequestPart("file") MultipartFile multipartFile,
             PictureUploadRequest pictureUploadRequest,
             HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         PictureVo pictureVo = pictureService.uploadPicture(multipartFile, pictureUploadRequest, loginUser);
+        return ResultUtils.success(pictureVo);
+    }
+
+    /**
+     * 根据url上传图片（更新图片）
+     *
+     * @param pictureUploadRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/upload/url")
+    @ApiOperation("根据url上传图片")
+    public BaseResponse<PictureVo> uploadPictureByUrl(
+            @RequestBody PictureUploadRequest pictureUploadRequest,
+            HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        String fileUrl = pictureUploadRequest.getFileUrl();
+        PictureVo pictureVo = pictureService.uploadPicture(fileUrl, pictureUploadRequest, loginUser);
         return ResultUtils.success(pictureVo);
     }
 

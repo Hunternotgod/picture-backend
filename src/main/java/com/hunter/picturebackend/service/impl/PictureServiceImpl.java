@@ -12,6 +12,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hunter.picturebackend.exception.ErrorCode;
 import com.hunter.picturebackend.exception.ThrowUtils;
 import com.hunter.picturebackend.manager.FileManager;
+import com.hunter.picturebackend.manager.upload.FilePictureUpload;
+import com.hunter.picturebackend.manager.upload.PictureUploadTemplate;
+import com.hunter.picturebackend.manager.upload.UrlPictureUpload;
 import com.hunter.picturebackend.model.dto.file.UploadPictureResult;
 import com.hunter.picturebackend.model.dto.picture.PictureQueryRequest;
 import com.hunter.picturebackend.model.dto.picture.PictureReviewRequest;
@@ -49,16 +52,22 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     @Resource
     private UserService userService;
 
+    @Resource
+    private FilePictureUpload filePictureUpload;
+
+    @Resource
+    private UrlPictureUpload urlPictureUpload;
+
     /**
      * 上传图片
      *
-     * @param multipartFile
+     * @param inputSource          文件输入源
      * @param pictureUploadRequest
      * @param loginUser
      * @return
      */
     @Override
-    public PictureVo uploadPicture(MultipartFile multipartFile, PictureUploadRequest pictureUploadRequest, User loginUser) {
+    public PictureVo uploadPicture(Object inputSource, PictureUploadRequest pictureUploadRequest, User loginUser) {
         // 校验参数
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NO_AUTH_ERROR);
 
@@ -84,7 +93,14 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
         // 上传图片，得到图片信息
         String uploadPicturePathPrefix = String.format("public/%s", loginUser.getId()); // 图片路径前缀
-        UploadPictureResult uploadPictureResult = fileManager.uploadPicture(multipartFile, uploadPicturePathPrefix);
+
+        // 根据inputSource类型，区分上传方式（使用了模版方法）
+        PictureUploadTemplate pictureUploadTemplate = filePictureUpload;
+        if (inputSource instanceof String) {
+            pictureUploadTemplate = urlPictureUpload;
+        }
+        UploadPictureResult uploadPictureResult = pictureUploadTemplate.uploadPicture(inputSource, uploadPicturePathPrefix);
+
         // 构造入库的图片信息
         Picture picture = new Picture();
         picture.setUrl(uploadPictureResult.getUrl());

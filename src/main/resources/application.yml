@@ -1,5 +1,5 @@
 server:
-  port: 8123
+  port: ${server.port}
   servlet:
     context-path: /api
 
@@ -8,9 +8,9 @@ spring:
     name: picture-backend
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/picture
-    username: root
-    password: root
+    url: ${spring.datasource.url}
+    username: ${spring.datasource.username}
+    password: ${spring.datasource.password}
   # 开放更大的文件上传体积
   servlet:
     multipart:

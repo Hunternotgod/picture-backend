@@ -24,9 +24,12 @@ import java.util.List;
 
 /**
  * 文件 通用操作（稍微贴合业务）
+ *
+ * @deprecated 已废弃，改为使用upload包的模版方法优化
  */
 @Service
 @Slf4j
+@Deprecated
 public class FileManager {
     @Resource
     private CosClientConfig cosClientConfig;
