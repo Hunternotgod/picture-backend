@@ -22,7 +22,6 @@ import com.hunter.picturebackend.service.PictureService;
 import com.hunter.picturebackend.service.UserService;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
-import net.bytebuddy.implementation.bytecode.Throw;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -292,6 +291,23 @@ public class PictureController {
         pictureService.doPictureReview(pictureReviewRequest, loginUser);
         log.info("图片审核：{}", pictureReviewRequest);
         return ResultUtils.success(true);
+    }
+
+    /**
+     * 批量抓取和创建图片（仅管理员可用）
+     *
+     * @param pictureUploadByBatchRequest
+     * @param request
+     * @return 创建成功的图片数
+     */
+    @PostMapping("upload/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @ApiOperation("批量抓取和创建图片（仅管理员可用）")
+    public BaseResponse<Integer> uploadPictureByBatch(PictureUploadByBatchRequest pictureUploadByBatchRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(pictureUploadByBatchRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        Integer uploadCount = pictureService.uploadPictureByBatch(pictureUploadByBatchRequest, loginUser);
+        return ResultUtils.success(uploadCount);
     }
 
 }
