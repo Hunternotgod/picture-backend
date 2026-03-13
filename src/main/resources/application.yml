@@ -11,6 +11,12 @@ spring:
     url: ${spring.datasource.url}
     username: ${spring.datasource.username}
     password: ${spring.datasource.password}
+    # Redis 配置
+    redis:
+      database: ${spring.redis.database}
+      host: ${spring.redis.host}
+      port: ${spring.redis.port}
+      timeout: ${spring.redis.timeout}
   # 开放更大的文件上传体积
   servlet:
     multipart:
