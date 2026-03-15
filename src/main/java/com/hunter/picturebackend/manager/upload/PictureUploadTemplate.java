@@ -1,5 +1,6 @@
 package com.hunter.picturebackend.manager.upload;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.NumberUtil;
@@ -16,7 +17,9 @@ import com.hunter.picturebackend.exception.ThrowUtils;
 import com.hunter.picturebackend.manager.CosManager;
 import com.hunter.picturebackend.model.dto.file.UploadPictureResult;
 import com.qcloud.cos.model.PutObjectResult;
+import com.qcloud.cos.model.ciModel.persistence.CIObject;
 import com.qcloud.cos.model.ciModel.persistence.ImageInfo;
+import com.qcloud.cos.model.ciModel.persistence.ProcessResults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -40,6 +43,7 @@ public abstract class PictureUploadTemplate {
 
     @Resource
     private CosManager cosManager;
+    UploadPictureResult uploadPictureResult = new UploadPictureResult();
 
     /**
      * 模板方法，定义上传流程
@@ -70,6 +74,15 @@ public abstract class PictureUploadTemplate {
             PutObjectResult putObjectResult = cosManager.putPictureObject(uploadPath, file);
             ImageInfo imageInfo = putObjectResult.getCiUploadResult().getOriginalInfo().getImageInfo();
 
+            // 获取到图片处理结果
+            ProcessResults processResults = putObjectResult.getCiUploadResult().getProcessResults();
+            List<CIObject> objectList = processResults.getObjectList();
+            if (CollUtil.isNotEmpty(objectList)) {
+                CIObject compressCiObject = objectList.get(0);
+                // 封装压缩图的返回结果
+                return buildResult(originFilename, compressCiObject);
+            }
+
             // 5. 封装返回结果
             return buildResult(originFilename, file, uploadPath, imageInfo);
         } catch (Exception e) {
@@ -80,6 +93,7 @@ public abstract class PictureUploadTemplate {
             deleteTempFile(file);
         }
     }
+
 
     /**
      * 校验输入源（本地文件或 URL）
@@ -115,7 +129,7 @@ public abstract class PictureUploadTemplate {
      * @return
      */
     private UploadPictureResult buildResult(String originFilename, File file, String uploadPath, ImageInfo imageInfo) {
-        UploadPictureResult uploadPictureResult = new UploadPictureResult();
+
         int picWidth = imageInfo.getWidth();
         int picHeight = imageInfo.getHeight();
         double picScale = NumberUtil.round(picWidth * 1.0 / picHeight, 2).doubleValue();
@@ -127,6 +141,28 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setPicSize(FileUtil.size(file));
         uploadPictureResult.setUrl(cosClientConfig.getHost() + "/" + uploadPath);
         return uploadPictureResult;
+    }
+
+    /**
+     * 封装返回结果
+     *
+     * @param originFilename   原始文件名
+     * @param compressCiObject 压缩后的对象
+     * @return
+     */
+    private UploadPictureResult buildResult(String originFilename, CIObject compressCiObject) {
+        int picWidth = compressCiObject.getWidth();
+        int picHeight = compressCiObject.getHeight();
+        double picScale = NumberUtil.round(picWidth * 1.0 / picHeight, 2).doubleValue();
+        uploadPictureResult.setPicName(FileUtil.mainName(originFilename));
+        uploadPictureResult.setPicWidth(picWidth);
+        uploadPictureResult.setPicHeight(picHeight);
+        uploadPictureResult.setPicScale(picScale);
+        uploadPictureResult.setPicFormat(compressCiObject.getFormat());
+        uploadPictureResult.setPicSize(compressCiObject.getSize().longValue());
+        uploadPictureResult.setUrl(cosClientConfig.getHost() + "/" + compressCiObject.getKey());
+        return uploadPictureResult;
+
     }
 
     /**
