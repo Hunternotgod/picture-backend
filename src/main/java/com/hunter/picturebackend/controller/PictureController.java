@@ -334,8 +334,70 @@ public class PictureController {
         String cacheValue = JSONUtil.toJsonStr(pictureVoPage);
 
         // 写入本地缓存
-        LOCAL_CACHE.put(cacheKey,cacheValue);
+        LOCAL_CACHE.put(cacheKey, cacheValue);
 
+        return ResultUtils.success(pictureVoPage);
+    }
+
+    /**
+     * 分页获取图片列表（封装类）带多级缓存
+     *
+     * @param pictureQueryRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/list/page/Vo/cacheAndLocal")
+    @ApiOperation("分页获取图片列表（封装类）带多级缓存")
+    public BaseResponse<Page<PictureVo>> listPictureVoByPageWithCacheAndLocal(@RequestBody PictureQueryRequest pictureQueryRequest,
+                                                                              HttpServletRequest request) {
+        long current = pictureQueryRequest.getCurrent();
+        long size = pictureQueryRequest.getPageSize();
+        // 限制爬虫
+        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
+        // 普通用户默认只能看到审核通过的数据
+        pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+
+        // 查询缓存，缓存没有，再查询数据库
+        // 构建key
+        String queryCondition = JSONUtil.toJsonStr(pictureQueryRequest);
+        String hashKey = DigestUtils.md5DigestAsHex(queryCondition.getBytes());
+        String cacheKey = String.format("picture:listPictureVoByPage:%s", hashKey);
+
+        // 先从本地缓存中查询
+        String cachedValue = LOCAL_CACHE.getIfPresent(cacheKey);
+        if (cachedValue != null) {
+
+            Page<PictureVo> cachedPage = JSONUtil.toBean(cachedValue, Page.class);
+            return ResultUtils.success(cachedPage);
+        }
+
+        // 如果本地缓存未命中，操作redis，从redis缓存中查询
+        ValueOperations<String, String> opsForValue = stringRedisTemplate.opsForValue();
+        cachedValue = opsForValue.get(cacheKey);
+        if (cachedValue != null) {
+            // 如果redis缓存命中，更新本地缓存，返回结果
+            LOCAL_CACHE.put(cacheKey, cachedValue);
+            Page<PictureVo> cachePage = JSONUtil.toBean(cachedValue, Page.class);
+            return ResultUtils.success(cachePage);
+        }
+
+        // 如果本地缓存和redis缓存都没命中，查询数据库
+        Page<Picture> picturePage = pictureService.page(new Page<>(current, size),
+                pictureService.getQueryWrapper(pictureQueryRequest));
+
+        // 获取封装类
+        Page<PictureVo> pictureVoPage = pictureService.getPictureVoPage(picturePage, request);
+
+        // 存入redis缓存
+        String cacheValue = JSONUtil.toJsonStr(pictureVoPage);
+        // 设置过期时间 5-10min 防止缓存同一时间过期（缓存雪崩）
+        int cacheExpireTime = 300 + RandomUtil.randomInt(0, 300);
+        opsForValue.set(cacheKey, cacheValue, cacheExpireTime, TimeUnit.SECONDS);
+
+        // 更新本地缓存
+        LOCAL_CACHE.put(cacheKey, cachedValue);
+
+        // 返回
         return ResultUtils.success(pictureVoPage);
     }
 
