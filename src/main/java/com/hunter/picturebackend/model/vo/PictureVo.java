@@ -13,89 +13,94 @@ import java.util.List;
 public class PictureVo implements Serializable {
 
     /**
-     * id  
+     * id
      */
     private Long id;
 
     /**
-     * 图片 url  
+     * 图片 url
      */
     private String url;
 
     /**
-     * 图片名称  
+     * 缩略图 url
+     */
+    private String thumbnailUrl;
+
+    /**
+     * 图片名称
      */
     private String name;
 
     /**
-     * 简介  
+     * 简介
      */
     private String introduction;
 
     /**
-     * 标签  
+     * 标签
      */
     private List<String> tags;
 
     /**
-     * 分类  
+     * 分类
      */
     private String category;
 
     /**
-     * 文件体积  
+     * 文件体积
      */
     private Long picSize;
 
     /**
-     * 图片宽度  
+     * 图片宽度
      */
     private Integer picWidth;
 
     /**
-     * 图片高度  
+     * 图片高度
      */
     private Integer picHeight;
 
     /**
-     * 图片比例  
+     * 图片比例
      */
     private Double picScale;
 
     /**
-     * 图片格式  
+     * 图片格式
      */
     private String picFormat;
 
     /**
-     * 用户 id  
+     * 用户 id
      */
     private Long userId;
 
     /**
-     * 创建时间  
+     * 创建时间
      */
     private Date createTime;
 
     /**
-     * 编辑时间  
+     * 编辑时间
      */
     private Date editTime;
 
     /**
-     * 更新时间  
+     * 更新时间
      */
     private Date updateTime;
 
     /**
-     * 创建用户信息  
+     * 创建用户信息
      */
     private UserVo user;
 
     private static final long serialVersionUID = 1L;
 
     /**
-     * 封装类转对象  
+     * 封装类转对象
      */
     public static Picture voToObj(PictureVo PictureVo) {
         if (PictureVo == null) {
@@ -109,7 +114,7 @@ public class PictureVo implements Serializable {
     }
 
     /**
-     * 对象转封装类  
+     * 对象转封装类
      */
     public static PictureVo objToVo(Picture picture) {
         if (picture == null) {

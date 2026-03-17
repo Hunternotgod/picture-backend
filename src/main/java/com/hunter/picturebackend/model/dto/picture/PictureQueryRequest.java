@@ -24,6 +24,7 @@ public class PictureQueryRequest extends PageRequest implements Serializable {
      */
     private String name;
 
+
     /**
      * 简介
      */

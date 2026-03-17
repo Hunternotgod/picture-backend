@@ -7,6 +7,7 @@
     <resultMap id="BaseResultMap" type="com.hunter.picturebackend.model.entity.Picture">
         <id property="id" column="id" jdbcType="BIGINT"/>
         <result property="url" column="url" jdbcType="VARCHAR"/>
+        <result property="thumbnailUrl" column="thumbnailUrl" jdbcType="VARCHAR"/>
         <result property="name" column="name" jdbcType="VARCHAR"/>
         <result property="introduction" column="introduction" jdbcType="VARCHAR"/>
         <result property="category" column="category" jdbcType="VARCHAR"/>
@@ -24,11 +25,11 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id,url,name,
-        introduction,category,tags,
-        picSize,picWidth,picHeight,
-        picScale,picFormat,userId,
-        createTime,editTime,updateTime,
-        isDelete
+        id,url,thumbnailUrl,name,
+    introduction,category,tags,
+    picSize,picWidth,picHeight,
+    picScale,picFormat,userId,
+    createTime,editTime,updateTime,
+    isDelete
     </sql>
 </mapper>
