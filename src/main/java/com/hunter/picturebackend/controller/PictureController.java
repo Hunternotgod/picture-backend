@@ -1,6 +1,7 @@
 package com.hunter.picturebackend.controller;
 
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
@@ -14,6 +15,7 @@ import com.hunter.picturebackend.constant.UserConstant;
 import com.hunter.picturebackend.exception.BusinessException;
 import com.hunter.picturebackend.exception.ErrorCode;
 import com.hunter.picturebackend.exception.ThrowUtils;
+import com.hunter.picturebackend.manager.CosManager;
 import com.hunter.picturebackend.model.dto.picture.*;
 import com.hunter.picturebackend.model.entity.Picture;
 import com.hunter.picturebackend.model.entity.User;
@@ -24,6 +26,7 @@ import com.hunter.picturebackend.model.vo.PictureVo;
 
 import com.hunter.picturebackend.service.PictureService;
 import com.hunter.picturebackend.service.UserService;
+import com.qcloud.cos.COSClient;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -56,6 +59,9 @@ public class PictureController {
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private COSClient cosClient;
 
     /**
      * 本地缓存 caffeine
@@ -124,6 +130,8 @@ public class PictureController {
         ThrowUtils.throwIf(!oldPicture.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser), ErrorCode.NO_AUTH_ERROR);
         boolean result = pictureService.removeById(id);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "删除失败");
+        // 清理图片资源
+        pictureService.clearPictureFile(oldPicture);
         return ResultUtils.success(true);
     }
 
@@ -154,9 +162,13 @@ public class PictureController {
         // 补充审核参数
         User loginUser = userService.getLoginUser(request);
         pictureService.fillReviewParams(picture, loginUser);
-        // 操作数据库  
+        // 操作数据库
         boolean result = pictureService.updateById(picture);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        // 可以判断是否更新，如果更新则清理图片资源 clearPictureFile
+        if (StrUtil.isNotBlank(picture.getUrl())&&!picture.getUrl().equals(oldPicture.getUrl())){
+            pictureService.clearPictureFile(oldPicture);
+        }
         return ResultUtils.success(true);
     }
 
