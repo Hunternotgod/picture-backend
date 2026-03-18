@@ -2,6 +2,10 @@ server:
   port: ${server.port}
   servlet:
     context-path: /api
+    # cookie 30 天过期
+    session:
+      cookie:
+        max-age: ${server.servlet.session.cookie.max-age}
 
 spring:
   application:
@@ -11,12 +15,17 @@ spring:
     url: ${spring.datasource.url}
     username: ${spring.datasource.username}
     password: ${spring.datasource.password}
-    # Redis 配置
-    redis:
-      database: ${spring.redis.database}
-      host: ${spring.redis.host}
-      port: ${spring.redis.port}
-      timeout: ${spring.redis.timeout}
+  # Redis 配置
+  redis:
+    database: ${spring.redis.database}
+    host: ${spring.redis.host}
+    port: ${spring.redis.port}
+    timeout: ${spring.redis.timeout}
+    # session配置
+  session:
+    store-type: ${spring.session.store-type}
+    #30天过期
+    timeout: ${spring.session.timeout}
   # 开放更大的文件上传体积
   servlet:
     multipart:
