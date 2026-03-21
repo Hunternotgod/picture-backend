@@ -6,12 +6,11 @@ import com.hunter.picturebackend.model.dto.picture.PictureQueryRequest;
 import com.hunter.picturebackend.model.dto.picture.PictureReviewRequest;
 import com.hunter.picturebackend.model.dto.picture.PictureUploadByBatchRequest;
 import com.hunter.picturebackend.model.dto.picture.PictureUploadRequest;
-import com.hunter.picturebackend.model.dto.user.UserQueryRequest;
+
 import com.hunter.picturebackend.model.entity.Picture;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hunter.picturebackend.model.entity.User;
 import com.hunter.picturebackend.model.vo.PictureVo;
-import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
 
