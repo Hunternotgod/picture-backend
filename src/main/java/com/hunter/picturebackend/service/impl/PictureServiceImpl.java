@@ -37,6 +37,7 @@ import org.jsoup.select.Elements;
 import org.springframework.beans.BeanUtils;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 
 import javax.annotation.Resource;
@@ -73,6 +74,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     @Resource
     private SpaceService spaceService;
 
+    @Resource
+    private TransactionTemplate transactionTemplate;
+
     /**
      * 上传图片
      *
@@ -85,13 +89,16 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     public PictureVo uploadPicture(Object inputSource, PictureUploadRequest pictureUploadRequest, User loginUser) {
         // 校验参数
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NO_AUTH_ERROR);
-        // 校验空间是否存在
+        // 校验空间权限和额度
         Long spaceId = pictureUploadRequest.getSpaceId();
         if (spaceId != null) {
             Space space = spaceService.getById(spaceId);
             ThrowUtils.throwIf(space == null, ErrorCode.PARAMS_ERROR, "空间不存在");
             // 校验是否有空间的权限，仅空间管理员才能上传
             ThrowUtils.throwIf(!loginUser.getId().equals(space.getUserId()), ErrorCode.NO_AUTH_ERROR, "没有空间权限");
+            // 校验额度
+            ThrowUtils.throwIf(space.getTotalCount() >= space.getMaxCount(), ErrorCode.OPERATION_ERROR, "空间条数不足");
+            ThrowUtils.throwIf(space.getTotalSize() >= space.getMaxSize(), ErrorCode.OPERATION_ERROR, "空间条数不足");
         }
         // 判断更新还是新增
         Long pictureId = null;
@@ -170,8 +177,22 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             picture.setEditTime(new Date());
         }
 
-        boolean result = this.saveOrUpdate(picture);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "图片上传失败，数据库操作失败");
+        // 开启事务
+        Long finalSpaceId = spaceId;
+        transactionTemplate.execute(status -> {
+            //插入数据
+            boolean result = this.saveOrUpdate(picture);
+            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "图片上传失败，数据库操作失败");
+            boolean update = spaceService.lambdaUpdate()
+                    .eq(Space::getId, finalSpaceId)
+                    .setSql("totalSize = totalSize +" + picture.getPicSize())
+                    .setSql("totalCount = totalCount +" + 1)
+                    .update();
+            ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
+            return picture;
+        });
+
+        // 更新空间额度
         return PictureVo.objToVo(picture);
     }
 
@@ -217,7 +238,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         queryWrapper.eq(ObjUtil.isNotEmpty(id), "id", id);
         queryWrapper.eq(ObjUtil.isNotEmpty(userId), "userId", userId);
         queryWrapper.eq(ObjUtil.isNotEmpty(spaceId), "spaceId", spaceId);
-        queryWrapper.isNull(nullSpaceId,"spaceId");
+        queryWrapper.isNull(nullSpaceId, "spaceId");
         queryWrapper.like(StrUtil.isNotBlank(name), "name", name);
         queryWrapper.like(StrUtil.isNotBlank(introduction), "introduction", introduction);
         queryWrapper.like(StrUtil.isNotBlank(picFormat), "picFormat", picFormat);
@@ -474,10 +495,23 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         Long id = pictureId;
         Picture oldPicture = getById(id);
         ThrowUtils.throwIf(oldPicture == null, ErrorCode.NOT_FOUND_ERROR);
+
         // 校验权限
         checkPictureAuth(loginUser, oldPicture);
-        boolean result = removeById(id);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "删除失败");
+
+        // 开启事务
+        transactionTemplate.execute(status -> {
+            boolean result = removeById(id);
+            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "删除失败");
+            boolean update = spaceService.lambdaUpdate()
+                    .eq(Space::getId, oldPicture.getSpaceId())
+                    .setSql("totalSize = totalSize -" + oldPicture.getPicSize())
+                    .setSql("totalCount = totalCount -" + 1)
+                    .update();
+            ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
+            return true;
+        });
+
         // 清理图片资源
         clearPictureFile(oldPicture);
     }
