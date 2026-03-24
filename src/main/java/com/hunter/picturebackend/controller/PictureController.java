@@ -246,17 +246,17 @@ public class PictureController {
 
         //空间权限校验
         Long spaceId = pictureQueryRequest.getSpaceId();
-        if (spaceId == null){
+        if (spaceId == null) {
             // 公开图库
             // 普通用户默认只能看到审核通过的数据
             pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
             pictureQueryRequest.setNullSpaceId(true);
-        }else {
+        } else {
             // 私有空间
             User loginUser = userService.getLoginUser(request);
             Space space = spaceService.getById(spaceId);
-            ThrowUtils.throwIf(space == null,ErrorCode.PARAMS_ERROR,"空间不存在");
-            ThrowUtils.throwIf(!loginUser.getId().equals(space.getUserId()),ErrorCode.NO_AUTH_ERROR,"仅空间管理员可操作");
+            ThrowUtils.throwIf(space == null, ErrorCode.PARAMS_ERROR, "空间不存在");
+            ThrowUtils.throwIf(!loginUser.getId().equals(space.getUserId()), ErrorCode.NO_AUTH_ERROR, "仅空间管理员可操作");
         }
 
         // 查询数据库  
@@ -383,17 +383,17 @@ public class PictureController {
         ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
         //空间权限校验
         Long spaceId = pictureQueryRequest.getSpaceId();
-        if (spaceId == null){
+        if (spaceId == null) {
             // 公开图库
             // 普通用户默认只能看到审核通过的数据
             pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
             pictureQueryRequest.setNullSpaceId(true);
-        }else {
+        } else {
             // 私有空间
             User loginUser = userService.getLoginUser(request);
             Space space = spaceService.getById(spaceId);
-            ThrowUtils.throwIf(space == null,ErrorCode.PARAMS_ERROR,"空间不存在");
-            ThrowUtils.throwIf(!loginUser.getId().equals(space.getUserId()),ErrorCode.NO_AUTH_ERROR,"仅空间管理员可操作");
+            ThrowUtils.throwIf(space == null, ErrorCode.PARAMS_ERROR, "空间不存在");
+            ThrowUtils.throwIf(!loginUser.getId().equals(space.getUserId()), ErrorCode.NO_AUTH_ERROR, "仅空间管理员可操作");
         }
 
 
@@ -405,8 +405,9 @@ public class PictureController {
 
         // 先从本地缓存中查询
         String cachedValue = LOCAL_CACHE.getIfPresent(cacheKey);
+        // 如果本地缓存命中，返回结果
         if (cachedValue != null) {
-
+            // 把缓存从JSON转为Java对象
             Page<PictureVo> cachedPage = JSONUtil.toBean(cachedValue, Page.class);
             return ResultUtils.success(cachedPage);
         }
@@ -414,11 +415,13 @@ public class PictureController {
         // 如果本地缓存未命中，操作redis，从redis缓存中查询
         ValueOperations<String, String> opsForValue = stringRedisTemplate.opsForValue();
         cachedValue = opsForValue.get(cacheKey);
+        // 如果redis缓存命中，更新本地缓存，返回结果
         if (cachedValue != null) {
-            // 如果redis缓存命中，更新本地缓存，返回结果
+            // 更新本地缓存
             LOCAL_CACHE.put(cacheKey, cachedValue);
-            Page<PictureVo> cachePage = JSONUtil.toBean(cachedValue, Page.class);
-            return ResultUtils.success(cachePage);
+            // 把缓存从JSON转为Java对象
+            Page<PictureVo> redisCachePage = JSONUtil.toBean(cachedValue, Page.class);
+            return ResultUtils.success(redisCachePage);
         }
 
         // 如果本地缓存和redis缓存都没命中，查询数据库
@@ -429,13 +432,13 @@ public class PictureController {
         Page<PictureVo> pictureVoPage = pictureService.getPictureVoPage(picturePage, request);
 
         // 存入redis缓存
-        String cacheValue = JSONUtil.toJsonStr(pictureVoPage);
+        String redisCacheValue = JSONUtil.toJsonStr(pictureVoPage);
         // 设置过期时间 5-10min 防止缓存同一时间过期（缓存雪崩）
         int cacheExpireTime = 300 + RandomUtil.randomInt(0, 300);
-        opsForValue.set(cacheKey, cacheValue, cacheExpireTime, TimeUnit.SECONDS);
+        opsForValue.set(cacheKey, redisCacheValue, cacheExpireTime, TimeUnit.SECONDS);
 
         // 更新本地缓存
-        LOCAL_CACHE.put(cacheKey, cachedValue);
+        LOCAL_CACHE.put(cacheKey, redisCacheValue);
 
         // 返回
         return ResultUtils.success(pictureVoPage);
