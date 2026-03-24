@@ -14,6 +14,7 @@ import com.hunter.picturebackend.exception.BusinessException;
 import com.hunter.picturebackend.exception.ErrorCode;
 import com.hunter.picturebackend.exception.ThrowUtils;
 import com.hunter.picturebackend.manager.CosManager;
+import com.hunter.picturebackend.manager.cache.LocalCacheManager;
 import com.hunter.picturebackend.manager.upload.FilePictureUpload;
 import com.hunter.picturebackend.manager.upload.PictureUploadTemplate;
 import com.hunter.picturebackend.manager.upload.UrlPictureUpload;
@@ -35,9 +36,11 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.CollectionUtils;
 
 
 import javax.annotation.Resource;
@@ -73,6 +76,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private TransactionTemplate transactionTemplate;
+
+    @Resource
+    private LocalCacheManager localCacheManager;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * 上传图片
@@ -623,8 +632,47 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
     }
 
+    /**
+     * 清理图片列表缓存
+     *
+     * @param spaceId 空间id
+     *                - null: 清理公共空间缓存
+     *                - 具体值: 清理指定私有空间缓存
+     */
+    @Override
+    public void clearPictureListCache(Long spaceId) {
+
+        try {
+            // 策略：清理本地缓存 + 按空间类型清理Redis缓存
+            // 由于缓存key是MD5计算的，采用前缀匹配清理
+
+            // 1. 清理本地缓存（Caffeine不支持遍历，直接清理全部）
+            localCacheManager.invalidateAll();
+
+            // 2. 构建Redis清理模式
+            // 公共空间: 查询条件包含 "nullSpaceId":true
+            // 私有空间: 查询条件包含 "spaceId":xxx
+            String redisPattern = "picture:listPictureVoByPage:*";
+            Set<String> keys = stringRedisTemplate.keys(redisPattern);
+
+            if (!CollectionUtils.isEmpty(keys)) {
+                // 如果需要按空间精确清理，可以反序列化key对应的value进行判断
+                // 但性能开销大，这里采用简单策略：清理所有列表缓存
+                stringRedisTemplate.delete(keys);
+                log.info("已清理 {} 条Redis缓存，空间: {}", keys.size(),
+                        spaceId == null ? "公共空间" : "空间" + spaceId);
+            }
+        } catch (Exception e) {
+            log.error("清理缓存失败, spaceId={}", spaceId, e);
+        }
+    }
+
+
 
 }
+
+
+
 
 
 

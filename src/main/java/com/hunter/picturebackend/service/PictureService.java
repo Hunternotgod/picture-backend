@@ -128,5 +128,13 @@ public interface PictureService extends IService<Picture> {
      */
     void checkPictureAuth(User loginUser, Picture picture);
 
+    /**
+     * 清理图片列表缓存
+     *
+     * @param spaceId 空间id
+     *                - null: 清理公共空间缓存
+     *                - 具体值: 清理指定私有空间缓存
+     */
+    void clearPictureListCache(Long spaceId);
 
 }

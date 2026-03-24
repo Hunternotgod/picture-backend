@@ -5,8 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
+
 import com.hunter.picturebackend.annotation.AuthCheck;
 import com.hunter.picturebackend.common.BaseResponse;
 import com.hunter.picturebackend.common.DeleteRequest;
@@ -15,7 +14,8 @@ import com.hunter.picturebackend.constant.UserConstant;
 import com.hunter.picturebackend.exception.BusinessException;
 import com.hunter.picturebackend.exception.ErrorCode;
 import com.hunter.picturebackend.exception.ThrowUtils;
-import com.hunter.picturebackend.manager.CosManager;
+
+import com.hunter.picturebackend.manager.cache.LocalCacheManager;
 import com.hunter.picturebackend.model.dto.picture.*;
 import com.hunter.picturebackend.model.entity.Picture;
 import com.hunter.picturebackend.model.entity.Space;
@@ -28,7 +28,7 @@ import com.hunter.picturebackend.model.vo.PictureVo;
 import com.hunter.picturebackend.service.PictureService;
 import com.hunter.picturebackend.service.SpaceService;
 import com.hunter.picturebackend.service.UserService;
-import com.qcloud.cos.COSClient;
+
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -40,7 +40,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -64,15 +63,8 @@ public class PictureController {
     @Resource
     private SpaceService spaceService;
 
-    /**
-     * 本地缓存 caffeine
-     */
-    private Cache<String, String> LOCAL_CACHE = Caffeine.newBuilder()
-            .initialCapacity(1024)
-            .maximumSize(10_000L) // 最大一万条数据
-            // 缓存5min后移除
-            .expireAfterWrite(Duration.ofMinutes(5))
-            .build();
+    @Resource
+    private LocalCacheManager localCacheManager;
 
     /**
      * 根据图片文件上传图片（更新图片）
@@ -90,6 +82,7 @@ public class PictureController {
             HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         PictureVo pictureVo = pictureService.uploadPicture(multipartFile, pictureUploadRequest, loginUser);
+        pictureService.clearPictureListCache(pictureUploadRequest.getSpaceId());
         return ResultUtils.success(pictureVo);
     }
 
@@ -108,6 +101,7 @@ public class PictureController {
         User loginUser = userService.getLoginUser(request);
         String fileUrl = pictureUploadRequest.getFileUrl();
         PictureVo pictureVo = pictureService.uploadPicture(fileUrl, pictureUploadRequest, loginUser);
+        pictureService.clearPictureListCache(pictureUploadRequest.getSpaceId());
         return ResultUtils.success(pictureVo);
     }
 
@@ -125,6 +119,8 @@ public class PictureController {
         ThrowUtils.throwIf(deleteRequest == null || deleteRequest.getId() <= 0, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
         pictureService.deletePicture(deleteRequest.getId(), loginUser);
+        Picture picture = pictureService.getById(deleteRequest.getId());
+        pictureService.clearPictureListCache(picture.getSpaceId());
         return ResultUtils.success(true);
     }
 
@@ -162,6 +158,7 @@ public class PictureController {
         if (StrUtil.isNotBlank(picture.getUrl()) && !picture.getUrl().equals(oldPicture.getUrl())) {
             pictureService.clearPictureFile(oldPicture);
         }
+        pictureService.clearPictureListCache(picture.getSpaceId());
         return ResultUtils.success(true);
     }
 
@@ -342,7 +339,7 @@ public class PictureController {
         String cacheKey = String.format("picture:listPictureVoByPage:%s", hashKey);
 
         // 从本地缓存中查询
-        String cachedValue = LOCAL_CACHE.getIfPresent(cacheKey);
+        String cachedValue = localCacheManager.get(cacheKey);
 
         if (cachedValue != null) {
             // 如果缓存结果命中，缓存结果
@@ -361,7 +358,7 @@ public class PictureController {
         String cacheValue = JSONUtil.toJsonStr(pictureVoPage);
 
         // 写入本地缓存
-        LOCAL_CACHE.put(cacheKey, cacheValue);
+        localCacheManager.put(cacheKey, cacheValue);
 
         return ResultUtils.success(pictureVoPage);
     }
@@ -404,23 +401,20 @@ public class PictureController {
         String cacheKey = String.format("picture:listPictureVoByPage:%s", hashKey);
 
         // 先从本地缓存中查询
-        String cachedValue = LOCAL_CACHE.getIfPresent(cacheKey);
-        // 如果本地缓存命中，返回结果
+        String cachedValue = localCacheManager.get(cacheKey);
         if (cachedValue != null) {
-            // 把缓存从JSON转为Java对象
+
             Page<PictureVo> cachedPage = JSONUtil.toBean(cachedValue, Page.class);
             return ResultUtils.success(cachedPage);
         }
 
         // 如果本地缓存未命中，操作redis，从redis缓存中查询
         ValueOperations<String, String> opsForValue = stringRedisTemplate.opsForValue();
-        cachedValue = opsForValue.get(cacheKey);
-        // 如果redis缓存命中，更新本地缓存，返回结果
-        if (cachedValue != null) {
-            // 更新本地缓存
-            LOCAL_CACHE.put(cacheKey, cachedValue);
-            // 把缓存从JSON转为Java对象
-            Page<PictureVo> redisCachePage = JSONUtil.toBean(cachedValue, Page.class);
+       String redisCachedValue = opsForValue.get(cacheKey);
+        if (redisCachedValue != null) {
+            // 如果redis缓存命中，更新本地缓存，返回结果
+            localCacheManager.put(cacheKey, redisCachedValue);
+            Page<PictureVo> redisCachePage = JSONUtil.toBean(redisCachedValue, Page.class);
             return ResultUtils.success(redisCachePage);
         }
 
@@ -432,13 +426,13 @@ public class PictureController {
         Page<PictureVo> pictureVoPage = pictureService.getPictureVoPage(picturePage, request);
 
         // 存入redis缓存
-        String redisCacheValue = JSONUtil.toJsonStr(pictureVoPage);
+        String reidsCacheValue = JSONUtil.toJsonStr(pictureVoPage);
         // 设置过期时间 5-10min 防止缓存同一时间过期（缓存雪崩）
         int cacheExpireTime = 300 + RandomUtil.randomInt(0, 300);
-        opsForValue.set(cacheKey, redisCacheValue, cacheExpireTime, TimeUnit.SECONDS);
+        opsForValue.set(cacheKey, reidsCacheValue, cacheExpireTime, TimeUnit.SECONDS);
 
         // 更新本地缓存
-        LOCAL_CACHE.put(cacheKey, redisCacheValue);
+        localCacheManager.put(cacheKey, reidsCacheValue);
 
         // 返回
         return ResultUtils.success(pictureVoPage);
@@ -459,6 +453,8 @@ public class PictureController {
         }
         User loginUser = userService.getLoginUser(request);
         pictureService.editPicture(pictureEditRequest, loginUser);
+        Picture picture = pictureService.getById(pictureEditRequest.getId());
+        pictureService.clearPictureListCache(picture.getSpaceId());
         return ResultUtils.success(true);
     }
 
@@ -510,6 +506,7 @@ public class PictureController {
         ThrowUtils.throwIf(pictureUploadByBatchRequest == null, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
         Integer uploadCount = pictureService.uploadPictureByBatch(pictureUploadByBatchRequest, loginUser);
+        pictureService.clearPictureListCache(null);
         return ResultUtils.success(uploadCount);
     }
 
