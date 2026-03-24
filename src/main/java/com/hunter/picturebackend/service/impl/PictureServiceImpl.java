@@ -189,12 +189,15 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             //插入数据
             boolean result = this.saveOrUpdate(picture);
             ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "图片上传失败，数据库操作失败");
-            boolean update = spaceService.lambdaUpdate()
-                    .eq(Space::getId, finalSpaceId)
-                    .setSql("totalSize = totalSize +" + picture.getPicSize())
-                    .setSql("totalCount = totalCount + 1")
-                    .update();
-            ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
+            if (finalSpaceId != null){
+                // 更新空间的使用额度
+                boolean update = spaceService.lambdaUpdate()
+                        .eq(Space::getId, finalSpaceId)
+                        .setSql("totalSize = totalSize +" + picture.getPicSize())
+                        .setSql("totalCount = totalCount + 1")
+                        .update();
+                ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
+            }
             return picture;
         });
 
@@ -562,13 +565,16 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                 Long spaceId = entry.getKey();
                 Long sizeReduce = entry.getValue(); // 额度变化
                 Long countReduce = spaceCountDelta.get(spaceId); // 数量变化
-                // 额度更新
-                boolean update = spaceService.lambdaUpdate()
-                        .eq(Space::getId, spaceId)
-                        .setSql("totalSize = totalSize -" + sizeReduce)
-                        .setSql("totalCount = totalCount - " + countReduce)
-                        .update();
-                ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
+                if (spaceId != null) {
+                    // 额度更新
+                    boolean update = spaceService.lambdaUpdate()
+                            .eq(Space::getId, spaceId)
+                            .setSql("totalSize = totalSize -" + sizeReduce)
+                            .setSql("totalCount = totalCount - " + countReduce)
+                            .update();
+                    ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
+                }
+                clearPictureListCache(spaceId);
             }
             return true;
         });
@@ -666,7 +672,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             log.error("清理缓存失败, spaceId={}", spaceId, e);
         }
     }
-
 
 
 }

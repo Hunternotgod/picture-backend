@@ -118,8 +118,8 @@ public class PictureController {
                                                HttpServletRequest request) {
         ThrowUtils.throwIf(deleteRequest == null || deleteRequest.getId() <= 0, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
-        pictureService.deletePicture(deleteRequest.getId(), loginUser);
         Picture picture = pictureService.getById(deleteRequest.getId());
+        pictureService.deletePicture(deleteRequest.getId(), loginUser);
         pictureService.clearPictureListCache(picture.getSpaceId());
         return ResultUtils.success(true);
     }
