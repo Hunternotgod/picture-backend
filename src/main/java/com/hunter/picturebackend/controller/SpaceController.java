@@ -1,5 +1,6 @@
 package com.hunter.picturebackend.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hunter.picturebackend.annotation.AuthCheck;
 import com.hunter.picturebackend.common.BaseResponse;
@@ -9,13 +10,13 @@ import com.hunter.picturebackend.constant.UserConstant;
 import com.hunter.picturebackend.exception.BusinessException;
 import com.hunter.picturebackend.exception.ErrorCode;
 import com.hunter.picturebackend.exception.ThrowUtils;
-import com.hunter.picturebackend.model.dto.space.SpaceAddRequest;
-import com.hunter.picturebackend.model.dto.space.SpaceEditRequest;
-import com.hunter.picturebackend.model.dto.space.SpaceQueryRequest;
-import com.hunter.picturebackend.model.dto.space.SpaceUpdateRequest;
+import com.hunter.picturebackend.model.dto.space.*;
+import com.hunter.picturebackend.model.entity.Picture;
 import com.hunter.picturebackend.model.entity.Space;
 import com.hunter.picturebackend.model.entity.User;
+import com.hunter.picturebackend.model.enums.SpaceLevelEnum;
 import com.hunter.picturebackend.model.vo.SpaceVo;
+import com.hunter.picturebackend.service.PictureService;
 import com.hunter.picturebackend.service.SpaceService;
 import com.hunter.picturebackend.service.UserService;
 import com.qcloud.cos.COSClient;
@@ -27,7 +28,11 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 
 /**
@@ -42,6 +47,9 @@ public class SpaceController {
 
     @Resource
     private SpaceService spaceService;
+
+    @Resource
+    private PictureService pictureService;
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
@@ -78,13 +86,23 @@ public class SpaceController {
                                              HttpServletRequest request) {
         ThrowUtils.throwIf(deleteRequest == null || deleteRequest.getId() <= 0, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
-        Long id = deleteRequest.getId();
-        Space oldSpace = spaceService.getById(id);
+        Long spaceId = deleteRequest.getId();
+        Space oldSpace = spaceService.getById(spaceId);
         ThrowUtils.throwIf(oldSpace == null, ErrorCode.NOT_FOUND_ERROR);
         // 仅限本人和管理员可以删除
         ThrowUtils.throwIf(!oldSpace.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser), ErrorCode.NO_AUTH_ERROR);
-        boolean result = spaceService.removeById(id);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "删除失败");
+        boolean result = spaceService.removeById(spaceId);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "空间删除失败");
+        // 通过spaceId获取同一个空间下的图片id
+        LambdaQueryWrapper<Picture> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Picture::getSpaceId, spaceId);
+        List<Picture> pictureList = pictureService.list(queryWrapper);
+        List<Long> pictureIdList = pictureList.stream()
+                .map(Picture::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        // 删除这些图片
+        pictureService.deletePictures(pictureIdList, loginUser);
         return ResultUtils.success(true);
     }
 
@@ -233,6 +251,25 @@ public class SpaceController {
         boolean result = spaceService.updateById(space);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
+    }
+
+    /**
+     * 获取空间级别列表，便于前端展示
+     *
+     * @return 空间级别列表
+     */
+    @GetMapping("/list/level")
+    @ApiOperation("获取空间级别列表，便于前端展示")
+    public BaseResponse<List<SpaceLevel>> listSpaceLevel() {
+        List<SpaceLevel> spaceLevelList = Arrays.stream(SpaceLevelEnum.values())
+                .map(spaceLevelEnum -> new SpaceLevel(
+                        spaceLevelEnum.getValue(),
+                        spaceLevelEnum.getText(),
+                        spaceLevelEnum.getMaxCount(),
+                        spaceLevelEnum.getMaxSize()
+                ))
+                .collect(Collectors.toList());
+        return ResultUtils.success(spaceLevelList);
     }
 
 }

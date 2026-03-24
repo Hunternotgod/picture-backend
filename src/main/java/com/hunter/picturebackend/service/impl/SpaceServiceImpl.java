@@ -14,23 +14,22 @@ import com.hunter.picturebackend.exception.ThrowUtils;
 import com.hunter.picturebackend.mapper.SpaceMapper;
 import com.hunter.picturebackend.model.dto.space.SpaceAddRequest;
 import com.hunter.picturebackend.model.dto.space.SpaceQueryRequest;
-import com.hunter.picturebackend.model.entity.Picture;
 import com.hunter.picturebackend.model.entity.Space;
 import com.hunter.picturebackend.model.entity.User;
 import com.hunter.picturebackend.model.enums.SpaceLevelEnum;
-import com.hunter.picturebackend.model.vo.PictureVo;
 import com.hunter.picturebackend.model.vo.SpaceVo;
 import com.hunter.picturebackend.model.vo.UserVo;
+import com.hunter.picturebackend.service.PictureService;
 import com.hunter.picturebackend.service.SpaceService;
 import com.hunter.picturebackend.service.UserService;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -48,7 +47,8 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
     private UserService userService;
 
     @Resource
-    private TransactionTemplate transactionTemplate;
+    private TransactionTemplate transactionTemplate; // 编程式事务
+
 
     /**
      * 创建空间
@@ -234,6 +234,7 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         queryWrapper.orderBy(StrUtil.isNotEmpty(sortField), sortOrder.equals("ascend"), sortField);
         return queryWrapper;
     }
+
 
 
 }

@@ -43,10 +43,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -186,7 +183,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             boolean update = spaceService.lambdaUpdate()
                     .eq(Space::getId, finalSpaceId)
                     .setSql("totalSize = totalSize +" + picture.getPicSize())
-                    .setSql("totalCount = totalCount +" + 1)
+                    .setSql("totalCount = totalCount + 1")
                     .update();
             ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
             return picture;
@@ -506,14 +503,76 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             boolean update = spaceService.lambdaUpdate()
                     .eq(Space::getId, oldPicture.getSpaceId())
                     .setSql("totalSize = totalSize -" + oldPicture.getPicSize())
-                    .setSql("totalCount = totalCount -" + 1)
+                    .setSql("totalCount = totalCount - 1")
                     .update();
             ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
             return true;
         });
 
+
         // 清理图片资源
         clearPictureFile(oldPicture);
+    }
+
+    /**
+     * 批量删除图片
+     *
+     * @param pictureIdList
+     * @param loginUser
+     */
+    @Override
+    public void deletePictures(List<Long> pictureIdList, User loginUser) {
+
+        ThrowUtils.throwIf(CollUtil.isEmpty(pictureIdList) && loginUser == null, ErrorCode.PARAMS_ERROR);
+
+        List<Picture> pictures = listByIds(pictureIdList);
+
+        for (Picture picture : pictures) {
+            ThrowUtils.throwIf(pictures == null, ErrorCode.NOT_FOUND_ERROR);
+            // 校验权限
+            checkPictureAuth(loginUser, picture);
+        }
+
+        // 按空间分组计算额度变更
+        Map<Long, Long> spaceSizeDelta = new HashMap<>(); //  需减少的总大小
+        Map<Long, Long> spaceCountDelta = new HashMap<>(); //  需减少的总数量
+
+        for (Picture picture : pictures) {
+            Long spaceId = picture.getSpaceId();
+            spaceSizeDelta.put(spaceId, spaceSizeDelta.getOrDefault(spaceId, 0L) + picture.getPicSize());
+            spaceCountDelta.put(spaceId, spaceCountDelta.getOrDefault(spaceId, 0L) + 1);
+        }
+
+
+        // 开启事务
+        transactionTemplate.execute(status -> {
+            // 数据库删除
+            boolean result = removeBatchByIds(pictureIdList);
+            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "删除失败");
+            for (Map.Entry<Long, Long> entry : spaceSizeDelta.entrySet()) {
+                Long spaceId = entry.getKey();
+                Long sizeReduce = entry.getValue(); // 额度变化
+                Long countReduce = spaceCountDelta.get(spaceId); // 数量变化
+                // 额度更新
+                boolean update = spaceService.lambdaUpdate()
+                        .eq(Space::getId, spaceId)
+                        .setSql("totalSize = totalSize -" + sizeReduce)
+                        .setSql("totalCount = totalCount - " + countReduce)
+                        .update();
+                ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
+            }
+            return true;
+        });
+
+        for (Picture picture : pictures) {
+            try {
+                // 清理图片资源
+                clearPictureFile(picture);
+            } catch (Exception e) {
+                log.error("图片资源清理失败 pictureId: {}", picture.getId());
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "图片清理失败");
+            }
+        }
     }
 
     /**

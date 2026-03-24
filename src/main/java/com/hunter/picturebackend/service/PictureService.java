@@ -10,6 +10,7 @@ import com.hunter.picturebackend.model.entity.User;
 import com.hunter.picturebackend.model.vo.PictureVo;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * @author hunternotgod
@@ -104,6 +105,14 @@ public interface PictureService extends IService<Picture> {
     void deletePicture(long pictureId, User loginUser);
 
     /**
+     * 批量删除图片
+     *
+     * @param pictureIdList
+     * @param loginUser
+     */
+    void deletePictures(List<Long> pictureIdList, User loginUser);
+
+    /**
      * 编辑图片
      *
      * @param pictureEditRequest
@@ -118,4 +127,6 @@ public interface PictureService extends IService<Picture> {
      * @param picture
      */
     void checkPictureAuth(User loginUser, Picture picture);
+
+
 }

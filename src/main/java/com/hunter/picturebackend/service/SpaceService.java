@@ -10,6 +10,7 @@ import com.hunter.picturebackend.model.entity.User;
 import com.hunter.picturebackend.model.vo.SpaceVo;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 
 /**
@@ -67,6 +68,7 @@ public interface SpaceService extends IService<Space> {
      * @return 查询条件
      */
     QueryWrapper<Space> getQueryWrapper(SpaceQueryRequest spaceQueryRequest);
+
 
 
 }
