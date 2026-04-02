@@ -2,6 +2,7 @@ package com.hunter.picturebackend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.hunter.picturebackend.api.aliyunai.model.CreateImageOutPaintingResponse;
 import com.hunter.picturebackend.model.dto.picture.*;
 
 import com.hunter.picturebackend.model.entity.Picture;
@@ -136,5 +137,14 @@ public interface PictureService extends IService<Picture> {
      *                - 具体值: 清理指定私有空间缓存
      */
     void clearPictureListCache(Long spaceId);
+
+    /**
+     * 创建扩图任务
+     *
+     * @param pictureImageOutPaintingRequest
+     * @param loginUser
+     */
+    CreateImageOutPaintingResponse createPictureImageOutPaintingTask(PictureImageOutPaintingRequest pictureImageOutPaintingRequest, User loginUser);
+
 
 }

@@ -10,6 +10,9 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 
+import com.hunter.picturebackend.api.aliyunai.AliYunAiApi;
+import com.hunter.picturebackend.api.aliyunai.model.CreateImageOutPaintingResponse;
+import com.hunter.picturebackend.api.aliyunai.model.ImageOutPaintingRequest;
 import com.hunter.picturebackend.exception.BusinessException;
 import com.hunter.picturebackend.exception.ErrorCode;
 import com.hunter.picturebackend.exception.ThrowUtils;
@@ -82,6 +85,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private AliYunAiApi aliYunAiApi;
 
     /**
      * 上传图片
@@ -189,7 +195,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             //插入数据
             boolean result = this.saveOrUpdate(picture);
             ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "图片上传失败，数据库操作失败");
-            if (finalSpaceId != null){
+            if (finalSpaceId != null) {
                 // 更新空间的使用额度
                 boolean update = spaceService.lambdaUpdate()
                         .eq(Space::getId, finalSpaceId)
@@ -233,6 +239,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         Long reviewerId = pictureQueryRequest.getReviewerId();
         Long userId = pictureQueryRequest.getUserId();
         Long spaceId = pictureQueryRequest.getSpaceId();
+        Date startEditTime = pictureQueryRequest.getStartEditTime();
+        Date endEditTime = pictureQueryRequest.getEndEditTime();
         boolean nullSpaceId = pictureQueryRequest.isNullSpaceId();
         String sortField = pictureQueryRequest.getSortField();
         String sortOrder = pictureQueryRequest.getSortOrder();
@@ -259,6 +267,10 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         queryWrapper.eq(ObjUtil.isNotEmpty(picScale), "picScale", picScale);
         queryWrapper.eq(ObjUtil.isNotEmpty(reviewerId), "reviewerId", reviewerId); // 新增
         queryWrapper.eq(ObjUtil.isNotEmpty(reviewStatus), "reviewStatus", reviewStatus); // 新增
+        // >= startEditTime
+        queryWrapper.ge(ObjUtil.isNotEmpty(startEditTime), "editTime", startEditTime);
+        // < endEditTime
+        queryWrapper.lt(ObjUtil.isNotEmpty(endEditTime), "editTime", endEditTime);
 
         // JSON 数组查询
         if (CollUtil.isNotEmpty(tags)) {
@@ -671,6 +683,31 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         } catch (Exception e) {
             log.error("清理缓存失败, spaceId={}", spaceId, e);
         }
+    }
+
+    /**
+     * 创建扩图任务
+     *
+     * @param pictureImageOutPaintingRequest
+     * @param loginUser
+     */
+    @Override
+    public CreateImageOutPaintingResponse createPictureImageOutPaintingTask(PictureImageOutPaintingRequest pictureImageOutPaintingRequest, User loginUser) {
+        ThrowUtils.throwIf(pictureImageOutPaintingRequest == null || loginUser == null, ErrorCode.PARAMS_ERROR);
+        Long pictureId = pictureImageOutPaintingRequest.getPictureId();
+        Picture picture = Optional.ofNullable(getById(pictureId))
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图片不存在"));
+        // 权限校验
+        checkPictureAuth(loginUser, picture);
+        // 创建扩图任务
+        ImageOutPaintingRequest imageOutPaintingRequest = new ImageOutPaintingRequest();
+        ImageOutPaintingRequest.Input input = new ImageOutPaintingRequest.Input();
+        input.setImageUrl(picture.getUrl());
+        imageOutPaintingRequest.setInput(input);
+        imageOutPaintingRequest.setParameters(pictureImageOutPaintingRequest.getParameters());
+        // 创建任务
+        return aliYunAiApi.createImageOutPainting(imageOutPaintingRequest);
+
     }
 
 

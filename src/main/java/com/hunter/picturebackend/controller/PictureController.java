@@ -7,6 +7,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
 
 import com.hunter.picturebackend.annotation.AuthCheck;
+import com.hunter.picturebackend.api.aliyunai.AliYunAiApi;
+import com.hunter.picturebackend.api.aliyunai.model.CreateImageOutPaintingResponse;
+import com.hunter.picturebackend.api.aliyunai.model.GetImageOutPaintingResponse;
 import com.hunter.picturebackend.common.BaseResponse;
 import com.hunter.picturebackend.common.DeleteRequest;
 import com.hunter.picturebackend.common.ResultUtils;
@@ -65,6 +68,9 @@ public class PictureController {
 
     @Resource
     private LocalCacheManager localCacheManager;
+
+    @Resource
+    private AliYunAiApi aliYunAiApi;
 
     /**
      * 根据图片文件上传图片（更新图片）
@@ -410,7 +416,7 @@ public class PictureController {
 
         // 如果本地缓存未命中，操作redis，从redis缓存中查询
         ValueOperations<String, String> opsForValue = stringRedisTemplate.opsForValue();
-       String redisCachedValue = opsForValue.get(cacheKey);
+        String redisCachedValue = opsForValue.get(cacheKey);
         if (redisCachedValue != null) {
             // 如果redis缓存命中，更新本地缓存，返回结果
             localCacheManager.put(cacheKey, redisCachedValue);
@@ -510,4 +516,34 @@ public class PictureController {
         return ResultUtils.success(uploadCount);
     }
 
+    /**
+     * 创建Ai扩图任务
+     *
+     * @param pictureImageOutPaintingRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/ai/create_task")
+    @ApiOperation("创建Ai扩图任务")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<CreateImageOutPaintingResponse> createImageOutPaintingTask(@RequestBody PictureImageOutPaintingRequest pictureImageOutPaintingRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(pictureImageOutPaintingRequest == null || pictureImageOutPaintingRequest.getPictureId() == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        CreateImageOutPaintingResponse response = pictureService.createPictureImageOutPaintingTask(pictureImageOutPaintingRequest, loginUser);
+        return ResultUtils.success(response);
+    }
+
+    /**
+     * 获取Ai扩图任务结果
+     *
+     * @param taskId
+     * @return
+     */
+    @GetMapping("/ai/get_task_result")
+    @ApiOperation("获取Ai扩图任务结果")
+    public BaseResponse<GetImageOutPaintingResponse> getImageOutPaintingTaskResult(String taskId) {
+        ThrowUtils.throwIf(taskId == null, ErrorCode.PARAMS_ERROR);
+        GetImageOutPaintingResponse response = aliYunAiApi.getImageOutPaintingResponse(taskId);
+        return ResultUtils.success(response);
+    }
 }

@@ -68,3 +68,6 @@ cos:
     region: ${cos.client.region}
     bucket: ${cos.client.bucket}
 
+#阿里云Ai配置
+aliYunAi:
+  apiKey: ${aliYunAi.apiKey}
